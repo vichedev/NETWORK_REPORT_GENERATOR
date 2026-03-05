@@ -1,0 +1,18 @@
+services:
+  report-generator:
+    build: .
+    container_name: redcom-reports-safe
+    # Mapeamos tu puerto deseado 8888 al nuevo puerto seguro 8080
+    ports:
+      - "8888:8080"
+    environment:
+      - VITE_GROQ_API_KEY=${VITE_GROQ_API_KEY}
+    # Seguridad extra: Previene escalada de privilegios
+    security_opt:
+      - no-new-privileges:true
+    # Limitamos los recursos para que un proceso loco no sature tu servidor de RedCom
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: always
