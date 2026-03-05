@@ -34,7 +34,7 @@ export default function ConfigSection() {
             type="text"
             value={empresa}
             onChange={e => setEmpresa(e.target.value)}
-            placeholder="Ej: S&E La Mana"
+            placeholder="Ej: EMPRESA S.A."
             className="w-full px-3 py-2.5 bg-slate-950/80 border border-blue-900/50 rounded-lg
                        text-slate-300 text-sm placeholder-slate-600
                        focus:outline-none focus:border-blue-500 transition-colors"
