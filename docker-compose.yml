@@ -6,8 +6,19 @@ services:
     ports:
       - "8888:8080"
     volumes:
-      # Base de datos, imágenes archivadas y clave de cifrado.
-      # SIN este volumen se pierde todo (cuenta, empresas, historial) al recrear.
+      # ─────────────────────────────────────────────────────────────────
+      # AQUÍ VIVEN TUS DATOS: base de datos SQLite, imágenes archivadas de
+      # los informes y la clave maestra de cifrado de las API keys.
+      #
+      # Es un volumen con nombre, así que SOBREVIVE a:
+      #   docker compose up -d --build     (actualizar el código)
+      #   docker compose down              (parar el servicio)
+      #   docker compose restart
+      #
+      # Solo se borra si lo pides expresamente:
+      #   docker compose down -v           ← ¡ESTE borra la base de datos!
+      #   docker volume rm network_report_generator_report_data
+      # ─────────────────────────────────────────────────────────────────
       - report_data:/app/data
     networks:
       - network_reports_bridge
@@ -24,10 +35,14 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 40s
 
 volumes:
   report_data:
+    # Nombre fijo, igual al que Docker habría generado por defecto desde esta
+    # carpeta. Al fijarlo, los datos siguen ahí aunque muevas o renombres el
+    # directorio del proyecto.
+    name: network_report_generator_report_data
 
 networks:
   network_reports_bridge:

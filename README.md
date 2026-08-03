@@ -64,9 +64,72 @@ docker compose up -d --build
 
 Disponible en **http://localhost:8888**. No requiere ninguna variable de entorno.
 
-> ⚠️ El volumen `report_data` contiene la cuenta, las empresas, el historial y la
-> clave de cifrado. **Si lo borras, se pierde todo** — incluida la posibilidad de
-> descifrar las API keys guardadas.
+La primera construcción tarda un par de minutos: `better-sqlite3` es un módulo
+nativo y Alpine (musl) no tiene binario precompilado, así que se compila dentro
+del contenedor. El compilador se elimina después y no queda en la imagen final.
+
+---
+
+## Actualizar sin perder los datos
+
+Los datos viven en el volumen `network_report_generator_report_data`, **fuera de
+la imagen**. Actualizar es simplemente:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+La base de datos, las imágenes de los informes, los usuarios y las API keys
+siguen intactos. Si el esquema de la base de datos cambia entre versiones, el
+servidor aplica las migraciones solo al arrancar.
+
+**Qué conserva los datos y qué no:**
+
+| Comando | Datos |
+|---|---|
+| `docker compose up -d --build` | ✅ se conservan |
+| `docker compose down` | ✅ se conservan |
+| `docker compose restart` | ✅ se conservan |
+| `docker compose down -v` | ❌ **borra la base de datos** |
+| `docker volume rm network_report_generator_report_data` | ❌ **borra la base de datos** |
+
+El único comando peligroso es `down -v`. Para parar el servicio usa
+`docker compose down` a secas, o `docker compose stop`.
+
+### Copia de seguridad
+
+Antes de una actualización importante, o de forma periódica:
+
+```bash
+# Guardar todo el volumen en un .tar.gz con la fecha del día
+docker run --rm \
+  -v network_report_generator_report_data:/data:ro \
+  -v "$PWD":/backup \
+  alpine tar czf "/backup/nrg-backup-$(date +%F).tar.gz" -C /data .
+```
+
+Restaurar esa copia:
+
+```bash
+docker compose down
+docker run --rm \
+  -v network_report_generator_report_data:/data \
+  -v "$PWD":/backup \
+  alpine sh -c "rm -rf /data/* && tar xzf /backup/nrg-backup-2026-08-03.tar.gz -C /data"
+docker compose up -d
+```
+
+Para ver qué hay dentro sin restaurar nada:
+
+```bash
+docker run --rm -v network_report_generator_report_data:/data:ro alpine ls -la /data
+```
+
+> ⚠️ El volumen contiene también `data/.secret`, la clave maestra que cifra las
+> API keys. Si restauras la base de datos **sin** ese archivo, las claves
+> guardadas no se podrán descifrar y habrá que volver a introducirlas. Haz
+> siempre la copia del volumen entero, no solo de `report.db`.
 
 ---
 
