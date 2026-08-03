@@ -33,10 +33,10 @@ export default function AnalysisPreview({ analysis }) {
           {/* Stats grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
             {[
-              ['Avg Entrada', sec.stats?.avg_rx],
-              ['Avg Salida',  sec.stats?.avg_tx],
-              ['Máx Entrada', sec.stats?.max_rx],
-              ['Máx Salida',  sec.stats?.max_tx],
+              ['Avg Entrada', sec.stats?.entrada?.avg],
+              ['Avg Salida',  sec.stats?.salida?.avg],
+              ['Máx Entrada', sec.stats?.entrada?.max],
+              ['Máx Salida',  sec.stats?.salida?.max],
             ].map(([label, value]) => (
               <div
                 key={label}

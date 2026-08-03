@@ -1,20 +1,12 @@
 import { useApp } from '../context/AppContext'
+import { downloadBlob } from '../lib/exportReport'
 import AnalysisPreview from '../components/AnalysisPreview'
+import { Button } from '../components/ui'
 
 export default function DonePage() {
-  const { empresa, images, result, resetApp } = useApp()
+  const { empresa, images, result, resetApp, setPage } = useApp()
 
-  // Función genérica para descargar archivos
-  function downloadFile(blob, extension) {
-    if (!blob) return
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    const date = new Date().toISOString().split('T')[0]
-    a.href = url
-    a.download = `Informe_${empresa.replace(/\s+/g, '_')}_${date}.${extension}`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const empresaNombre = empresa?.nombre || 'cliente'
 
   return (
     <div className="animate-fade-in flex flex-col gap-6">
@@ -23,41 +15,36 @@ export default function DonePage() {
         <h2 className="text-2xl font-bold text-green-400 tracking-widest mb-2">
           INFORME GENERADO
         </h2>
-        <p className="text-green-800 text-sm mb-7">
+        <p className="text-green-800 text-sm mb-2">
           {images.length} gráfica{images.length !== 1 ? 's' : ''} analizada{images.length !== 1 ? 's' : ''} por IA · Formatos Word y PDF listos
+        </p>
+        <p className="text-green-900 text-xs mb-7">
+          🗂️ Archivado en el historial de <strong>{empresaNombre}</strong>
+          {result?.reportId ? ` (informe #${result.reportId})` : ''}
         </p>
 
         <div className="flex gap-3 justify-center flex-wrap">
-          {/* Botón Word */}
-          <button
-            onClick={() => downloadFile(result.docx, 'docx')}
-            className="px-8 py-3.5 bg-gradient-to-r from-blue-800 to-blue-600
-                       hover:from-blue-700 hover:to-blue-500
-                       text-white font-bold text-sm tracking-widest rounded-xl
-                       shadow-lg shadow-blue-900/40 transition-all duration-200"
+          <Button
+            onClick={() => downloadBlob(result?.docx, empresaNombre, 'docx')}
+            className="px-8 py-3.5 bg-gradient-to-r from-blue-800 to-blue-600 shadow-lg shadow-blue-900/40"
           >
             ⬇️  DESCARGAR .DOCX
-          </button>
+          </Button>
 
-          {/* Botón PDF (NUEVO) */}
-          <button
-            onClick={() => downloadFile(result.pdf, 'pdf')}
-            className="px-8 py-3.5 bg-gradient-to-r from-red-800 to-red-600
-                       hover:from-red-700 hover:to-red-500
-                       text-white font-bold text-sm tracking-widest rounded-xl
-                       shadow-lg shadow-red-900/40 transition-all duration-200"
+          <Button
+            onClick={() => downloadBlob(result?.pdf, empresaNombre, 'pdf')}
+            className="px-8 py-3.5 bg-gradient-to-r from-red-800 to-red-600 shadow-lg shadow-red-900/40"
           >
             ⬇️  DESCARGAR .PDF
-          </button>
+          </Button>
 
-          <button
-            onClick={resetApp}
-            className="px-6 py-3.5 bg-slate-800/80 hover:bg-slate-700/80
-                       border border-slate-700/50 text-blue-400
-                       font-semibold text-sm tracking-wide rounded-xl transition-all"
-          >
+          <Button variant="ghost" className="px-6 py-3.5" onClick={resetApp}>
             🔄  Nuevo informe
-          </button>
+          </Button>
+
+          <Button variant="ghost" className="px-6 py-3.5" onClick={() => { resetApp(); setPage('historial') }}>
+            🗂️  Ver historial
+          </Button>
         </div>
       </div>
 

@@ -8,7 +8,7 @@ const STEPS = [
 export default function StepIndicator({ currentStep = 1 }) {
   return (
     <div className="flex rounded-xl overflow-hidden border border-blue-900/40 mb-8">
-      {STEPS.map((step, i) => {
+      {STEPS.map((step) => {
         const done = step.n < currentStep
         const active = step.n === currentStep
         return (

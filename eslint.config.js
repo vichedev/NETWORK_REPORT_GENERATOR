@@ -5,9 +5,11 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'data']),
+
+  // ── Frontend (navegador + React) ──────────────────────────────────────────
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['src/**/*.{js,jsx}'],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -24,6 +26,22 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Los contextos exportan el provider y su hook desde el mismo archivo.
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+    },
+  },
+
+  // ── Backend (Node) ────────────────────────────────────────────────────────
+  {
+    files: ['server/**/*.js', '*.config.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      globals: globals.node,
+      parserOptions: { sourceType: 'module' },
+    },
+    rules: {
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_|^next$' }],
     },
   },
 ])

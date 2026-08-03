@@ -1,34 +1,38 @@
-# Etapa 1: Build
-FROM node:20-alpine AS build
+# ── Etapa 1: build del frontend ──────────────────────────────────────────────
+FROM node:22-alpine AS build
 WORKDIR /app
+
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
-# Etapa 2: Nginx Non-Root
-FROM nginx:stable-alpine
+# ── Etapa 2: runtime Node non-root ───────────────────────────────────────────
+FROM node:22-alpine AS runtime
+WORKDIR /app
 
-# Permisos para el usuario nginx
-RUN touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
+COPY package*.json ./
 
-COPY --from=build /app/dist /usr/share/nginx/html
-RUN chown -R nginx:nginx /usr/share/nginx/html
+# better-sqlite3 se compila de forma nativa: Alpine usa musl y no tiene binario
+# precompilado, así que instalamos el toolchain y lo retiramos después.
+RUN apk add --no-cache --virtual .build-deps python3 make g++ \
+ && npm ci --omit=dev \
+ && apk del .build-deps \
+ && npm cache clean --force
 
-# Nginx escuchando en 8080
-RUN echo 'server { \
-    listen 8080; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html index.htm; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Solo lo que el servidor necesita en runtime
+COPY --from=build /app/dist ./dist
+COPY server ./server
 
-USER nginx
+# El volumen de datos (BD, imágenes y clave de cifrado) pertenece al usuario node
+RUN mkdir -p /app/data/uploads && chown -R node:node /app
+
+USER node
+ENV NODE_ENV=production
+ENV PORT=8080
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+
+# La BD SQLite, las imágenes archivadas y data/.secret viven aquí.
+VOLUME ["/app/data"]
+
+CMD ["node", "server/index.js"]

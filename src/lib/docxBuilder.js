@@ -230,6 +230,7 @@ export async function buildDocx({ empresa, generadoPor, periodo, analysis, imgFi
   children.push(new Paragraph({ spacing: { before: 2880 } }));
   children.push(body('INFORME TÉCNICO DE INFRAESTRUCTURA', { center: true, bold: true, color: '003366', size: 50 }));
   children.push(body(empresa.toUpperCase(), { center: true, color: '1a4a7a', size: 40 }));
+  if (periodo) children.push(body(`Período analizado: ${periodo}`, { center: true, size: 24, color: '1a4a7a' }));
   children.push(body(`Fecha: ${today}`, { center: true, size: 24 }));
   if (generadoPor) children.push(body(`Generado por: ${generadoPor}`, { center: true, size: 22, color: '555555' }));
   children.push(pageBreak());

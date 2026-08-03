@@ -1,16 +1,18 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react'
+import { empresasApi, settingsApi } from '../lib/api'
 
 const AppContext = createContext(null)
 
 let uidCounter = 0
 
-function createImageEntry(file, defaultNodeName = '') {
+function createImageEntry(file) {
   return {
     id: ++uidCounter,
     file,
     preview: URL.createObjectURL(file),
     titulo: file.name.replace(/\.[^.]+$/, ''),
-    nodeName: defaultNodeName,
+    nodoId: '',            // id del nodo en la BD (vacío = nodo nuevo escrito a mano)
+    nodeName: '',
     interfaz: 'sfp-sfpplus1 (WAN)',
     ip: '',
     tipoGrafica: 'Tráfico general (avg)',
@@ -23,30 +25,86 @@ function createImageEntry(file, defaultNodeName = '') {
 }
 
 export function AppProvider({ children }) {
-  // Config — apiKey viene de .env (VITE_GEMINI_API_KEY), no se guarda en estado
-  const [empresa, setEmpresa] = useState('')
-  const [generadoPor, setGeneradoPor] = useState('MAAT')
+  // ── Navegación ─────────────────────────────────────────────
+  const [page, setPage] = useState('generator') // generator | empresas | historial | ajustes
 
-  // Images
+  // ── Catálogo (viene del backend) ───────────────────────────
+  const [empresas, setEmpresas] = useState([])
+  const [nodos, setNodos] = useState([])
+  const [activeKey, setActiveKey] = useState(null)
+  const [catalogLoading, setCatalogLoading] = useState(true)
+
+  // ── Datos del informe en curso ─────────────────────────────
+  const [empresaId, setEmpresaId] = useState('')
+  const [generadoPor, setGeneradoPor] = useState('MAAT')
   const [images, setImages] = useState([])
 
-  // App flow
-  const [page, setPage] = useState('form') // form | loading | done
+  // ── Flujo del generador ────────────────────────────────────
+  const [step, setStep] = useState('form') // form | loading | done
   const [loadMsg, setLoadMsg] = useState('')
+  // Progreso detallado que llega del backend: { stage, current, total, seconds }
+  const [progress, setProgress] = useState(null)
   const [error, setError] = useState('')
-  const [result, setResult] = useState(null) // { blob, analysis }
+  const [result, setResult] = useState(null) // { docx, pdf, analysis, reportId }
 
-  // ── Image actions ──────────────────────────────────────────
+  const empresa = useMemo(
+    () => empresas.find(e => String(e.id) === String(empresaId)) || null,
+    [empresas, empresaId],
+  )
+
+  // ── Carga del catálogo ─────────────────────────────────────
+  const reloadEmpresas = useCallback(async () => {
+    const { empresas } = await empresasApi.list()
+    setEmpresas(empresas)
+    return empresas
+  }, [])
+
+  const reloadActiveKey = useCallback(async () => {
+    const { keys } = await settingsApi.listKeys()
+    const active = keys.find(k => k.is_active) || null
+    setActiveKey(active)
+    return active
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        await Promise.all([reloadEmpresas(), reloadActiveKey()])
+      } catch (e) {
+        if (!cancelled) setError(e.message)
+      } finally {
+        if (!cancelled) setCatalogLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [reloadEmpresas, reloadActiveKey])
+
+  // Los nodos se recargan cada vez que cambia la empresa seleccionada.
+  useEffect(() => {
+    if (!empresaId) { setNodos([]); return }
+    let cancelled = false
+    empresasApi.listNodos(empresaId)
+      .then(({ nodos }) => { if (!cancelled) setNodos(nodos) })
+      .catch(() => { if (!cancelled) setNodos([]) })
+    return () => { cancelled = true }
+  }, [empresaId])
+
+  const reloadNodos = useCallback(async () => {
+    if (!empresaId) return []
+    const { nodos } = await empresasApi.listNodos(empresaId)
+    setNodos(nodos)
+    return nodos
+  }, [empresaId])
+
+  // ── Acciones sobre imágenes ────────────────────────────────
   const addImages = useCallback((files) => {
     const valid = Array.from(files).filter(f => f.type.startsWith('image/'))
-    setImages(prev => [
-      ...prev,
-      ...valid.map(f => createImageEntry(f, empresa))
-    ])
-  }, [empresa])
+    setImages(prev => [...prev, ...valid.map(createImageEntry)])
+  }, [])
 
-  const updateImage = useCallback((id, field, value) => {
-    setImages(prev => prev.map(img => img.id === id ? { ...img, [field]: value } : img))
+  const updateImage = useCallback((id, patch) => {
+    setImages(prev => prev.map(img => img.id === id ? { ...img, ...patch } : img))
   }, [])
 
   const removeImage = useCallback((id) => {
@@ -61,9 +119,9 @@ export function AppProvider({ children }) {
     setImages(prev => {
       const idx = prev.findIndex(i => i.id === id)
       if (idx === -1) return prev
-      const next = [...prev]
       const swapIdx = idx + direction
-      if (swapIdx < 0 || swapIdx >= next.length) return prev
+      if (swapIdx < 0 || swapIdx >= prev.length) return prev
+      const next = [...prev]
       ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
       return next
     })
@@ -79,20 +137,27 @@ export function AppProvider({ children }) {
     setResult(null)
     setError('')
     setLoadMsg('')
-    setPage('form')
+    setProgress(null)
+    setStep('form')
   }, [clearImages])
 
   return (
     <AppContext.Provider value={{
-      // config
-      empresa, setEmpresa,
-      generadoPor, setGeneradoPor,
-      // images
-      images,
-      addImages, updateImage, removeImage, moveImage, clearImages,
-      // flow
+      // navegación
       page, setPage,
+      // catálogo
+      empresas, reloadEmpresas,
+      nodos, reloadNodos,
+      activeKey, reloadActiveKey,
+      catalogLoading,
+      // informe en curso
+      empresaId, setEmpresaId, empresa,
+      generadoPor, setGeneradoPor,
+      images, addImages, updateImage, removeImage, moveImage, clearImages,
+      // flujo
+      step, setStep,
       loadMsg, setLoadMsg,
+      progress, setProgress,
       error, setError,
       result, setResult,
       resetApp,

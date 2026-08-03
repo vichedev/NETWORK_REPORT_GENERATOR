@@ -13,6 +13,14 @@ dist
 dist-ssr
 *.local
 
+# Datos persistentes del servidor: base de datos SQLite, imágenes archivadas
+# y la clave maestra de cifrado (data/.secret). NUNCA se versionan.
+data/
+
+# Configuración local de Claude Code. Guarda comandos permitidos literalmente,
+# así que puede acabar conteniendo claves de API: no debe versionarse.
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
